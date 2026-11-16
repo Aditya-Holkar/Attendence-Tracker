@@ -1,8 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseConfig } from "@/lib/supabase/env";
 import { aggregate, dailyCsv, fetchDaily, summaryCsv } from "@/lib/reports";
 
 export async function GET(req: NextRequest) {
+  if (!supabaseConfig()) return new NextResponse("Supabase is not configured", { status: 503 });
+
   const sb = await createClient();
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { btnCls, Field, inputCls } from "@/components/ui";
@@ -11,6 +11,12 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
+  useEffect(() => {
+    const err = new URLSearchParams(window.location.search).get("error");
+    if (err === "inactive") setMsg("Your account is inactive. Ask an admin to re-enable it.");
+    else if (err === "link") setMsg("That confirmation link is invalid or has expired. Try signing in, or sign up again.");
+  }, []);
+
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -20,11 +26,21 @@ export default function LoginPage() {
     const sb = createClient();
     const res = mode === "in"
       ? await sb.auth.signInWithPassword({ email, password })
-      : await sb.auth.signUp({ email, password, options: { data: { full_name: String(f.get("name") ?? "") } } });
+      : await sb.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: String(f.get("name") ?? "") },
+            // Confirmation emails come back to this origin, then exchange the code for a session.
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
     setBusy(false);
     if (res.error) return setMsg(res.error.message);
     if (mode === "up" && !res.data.session) return setMsg("Check your email to confirm your account, then sign in.");
-    router.replace("/");
+    // Return to the page the auth guard sent them away from (internal paths only).
+    const next = new URLSearchParams(window.location.search).get("next");
+    router.replace(next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
     router.refresh();
   }
 

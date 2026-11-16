@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseConfig } from "@/lib/supabase/env";
 import type { OrgSettings, Profile, Role } from "@/types";
 
 export async function requireProfile(roles?: Role[]) {
+  if (!supabaseConfig()) redirect("/setup");
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");

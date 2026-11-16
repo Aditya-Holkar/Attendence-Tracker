@@ -12,6 +12,28 @@ Employee portal (clock, breaks, timesheets, corrections, leave) and admin/manage
 5. As admin: Settings (timezone, schedules, departments, holidays), then Employees (roles, managers).
 6. For production add your site URL to Supabase Auth redirect URLs, then deploy to Vercel.
 
+## Deploying to Vercel
+
+Production URL: **https://attendencetracker-gamma.vercel.app**
+
+1. Push the repo to GitHub and import it in Vercel (framework preset: Next.js, root directory: repo root).
+2. In Vercel → **Settings → Environment Variables**, add both values for **Production** (and Preview):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (publishable/anon key only)
+3. **Redeploy** — `NEXT_PUBLIC_*` values are baked in at build time, so adding them is not enough on its own.
+4. In Supabase → **Authentication → URL Configuration**:
+   - **Site URL**: `https://attendencetracker-gamma.vercel.app`
+   - **Redirect URLs**: `https://attendencetracker-gamma.vercel.app/**` and `http://localhost:3000/**`
+5. If the deployment is missing its env vars, every page shows a `/setup` page that lists what's missing
+   instead of returning a 500.
+
+### Email confirmation links
+Sign-up sends `emailRedirectTo=<current origin>/auth/callback`, so the link in the confirmation email opens
+the app, exchanges the one-time code for a session (`src/app/auth/callback/route.ts`), and lands the user
+on their dashboard. Supabase only allows redirects that are listed under **Redirect URLs**; otherwise it
+falls back to the **Site URL**. To skip confirmation while testing: Authentication → Providers → Email →
+turn off **Confirm email**.
+
 ## How it works
 - **Events, not timers.** Clock in/out and breaks are stored as timestamped events. Elapsed time is
   derived from them (`src/lib/attendance/calculations.ts`); the 1-second tick only redraws.
@@ -24,6 +46,10 @@ Employee portal (clock, breaks, timesheets, corrections, leave) and admin/manage
 - **Security.** RLS on every table. Clients cannot write sessions/events directly, cannot change
   roles, and cannot approve their own requests. `review_adjustment()` checks role and team.
   Timezone logic uses the organisation timezone, not the browser's.
+- **Auth guard.** `src/proxy.ts` sends unauthenticated visitors to `/login?next=…` (only `/login`,
+  `/setup` and `/auth/*` are public), and every page calls `requireProfile([...roles])`, which enforces
+  the role on top of RLS. `/auth/callback` exchanges the code from confirmation emails, then redirects
+  to the dashboard. Signing in returns the user to the page the guard sent them away from.
 
 ## Not included yet
 PowerSync, geofencing/auto clock-in, multi-company (`organization_id`), PDF/Excel export (CSV only),
