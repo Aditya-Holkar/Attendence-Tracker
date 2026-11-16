@@ -55,6 +55,19 @@ export async function updateSession(request: NextRequest) {
   const signedIn = Boolean(data?.claims);
 
   if (!signedIn && !isPublic(pathname)) {
+    // Supabase sends expired or already-used email links to the Site URL with
+    // error params. Take the user to a clean login page with a clear message
+    // instead of preserving the entire error URL in `next`.
+    const error = request.nextUrl.searchParams.get("error");
+    const errorCode = request.nextUrl.searchParams.get("error_code");
+    if (error === "access_denied" || errorCode) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "";
+      url.searchParams.set("error", "link");
+      return NextResponse.redirect(url);
+    }
+
     // Auth guard: remember where the user was heading, then send them to sign in.
     const url = request.nextUrl.clone();
     url.pathname = "/login";

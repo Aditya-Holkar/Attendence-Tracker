@@ -3,8 +3,33 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { siteUrl } from "@/lib/site-url";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { btnCls, Field, inputCls } from "@/components/ui";
+
+/** Only allow internal paths, and never bounce back to an auth-error URL. */
+function safeNext(next: string | null) {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return "/";
+  if (next.includes("error_code=") || next.includes("error=access_denied")) return "/";
+  return next;
+}
+
+/** Supabase puts expired-link errors on the Site URL, which the guard stores in `next`. */
+function readAuthError(params: URLSearchParams) {
+  const next = params.get("next");
+  let nested: URLSearchParams | null = null;
+  if (next && next.startsWith("/") && !next.startsWith("//")) {
+    try {
+      nested = new URL(next, window.location.origin).searchParams;
+    } catch {
+      nested = null;
+    }
+  }
+  return {
+    error: params.get("error") ?? nested?.get("error") ?? null,
+    code: params.get("error_code") ?? nested?.get("error_code") ?? null,
+  };
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,9 +38,12 @@ export default function LoginPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    const err = new URLSearchParams(window.location.search).get("error");
-    if (err === "inactive") setMsg("Your account is inactive. Ask an admin to re-enable it.");
-    else if (err === "link") setMsg("That confirmation link is invalid or has expired. Try signing in, or sign up again.");
+    const { error, code } = readAuthError(new URLSearchParams(window.location.search));
+    if (error === "inactive") {
+      setMsg("Your account is inactive. Ask an admin to re-enable it.");
+    } else if (error === "link" || error === "access_denied" || code === "otp_expired") {
+      setMsg("That confirmation link is invalid or has expired. Sign in, or create the account again to get a fresh link.");
+    }
   }, []);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -32,8 +60,9 @@ export default function LoginPage() {
           password,
           options: {
             data: { full_name: String(f.get("name") ?? "") },
-            // Confirmation emails come back to this origin, then exchange the code for a session.
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            // Prefer the canonical URL so confirmation emails created on
+            // localhost still open the production deployment.
+            emailRedirectTo: `${siteUrl() || window.location.origin}/auth/callback`,
           },
         });
     setBusy(false);
@@ -41,7 +70,7 @@ export default function LoginPage() {
     if (mode === "up" && !res.data.session) return setMsg("Check your email to confirm your account, then sign in.");
     // Return to the page the auth guard sent them away from (internal paths only).
     const next = new URLSearchParams(window.location.search).get("next");
-    router.replace(next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
+    router.replace(safeNext(next));
     router.refresh();
   }
 

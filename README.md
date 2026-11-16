@@ -21,9 +21,10 @@ themes are available from the toggle in the sidebar (or top-right on the sign-in
 Production URL: **https://attendencetracker-gamma.vercel.app**
 
 1. Push the repo to GitHub and import it in Vercel (framework preset: Next.js, root directory: repo root).
-2. In Vercel → **Settings → Environment Variables**, add both values for **Production** (and Preview):
+2. In Vercel → **Settings → Environment Variables**, add all three values for **Production** (and Preview):
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (publishable/anon key only)
+   - `NEXT_PUBLIC_SITE_URL` = `https://attendencetracker-gamma.vercel.app`
 3. **Redeploy** — `NEXT_PUBLIC_*` values are baked in at build time, so adding them is not enough on its own.
 4. In Supabase → **Authentication → URL Configuration**:
    - **Site URL**: `https://attendencetracker-gamma.vercel.app`
@@ -32,11 +33,11 @@ Production URL: **https://attendencetracker-gamma.vercel.app**
    instead of returning a 500.
 
 ### Email confirmation links
-Sign-up sends `emailRedirectTo=<current origin>/auth/callback`, so the link in the confirmation email opens
-the app, exchanges the one-time code for a session (`src/app/auth/callback/route.ts`), and lands the user
-on their dashboard. Supabase only allows redirects that are listed under **Redirect URLs**; otherwise it
-falls back to the **Site URL**. To skip confirmation while testing: Authentication → Providers → Email →
-turn off **Confirm email**.
+Sign-up sends `emailRedirectTo=<NEXT_PUBLIC_SITE_URL>/auth/callback` (falling back to the current
+origin when the variable is unset), so a confirmation email created on localhost still opens the
+configured deployment. Supabase only allows redirects that are listed under **Redirect URLs**;
+otherwise it falls back to the **Site URL**. To skip confirmation while testing: Authentication →
+Providers → Email → turn off **Confirm email**.
 
 ## How it works
 - **Events, not timers.** Clock in/out and breaks are stored as timestamped events. Elapsed time is
