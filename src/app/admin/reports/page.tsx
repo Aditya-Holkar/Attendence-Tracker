@@ -6,7 +6,7 @@ import { formatHM, shiftDate, todayInTz } from "@/lib/time";
 export default async function Reports({ searchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
   const sp = await searchParams;
   const { supabase } = await requireProfile(["admin", "manager"]);
-  const org = await getOrg(supabase);
+  const org = await getOrg();
   const to = sp.to || todayInTz(org.timezone);
   const from = sp.from || shiftDate(to, -29);
   const rows = aggregate(await fetchDaily(supabase, from, to), org.overtime_after_minutes);

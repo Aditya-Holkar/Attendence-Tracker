@@ -6,7 +6,7 @@ import { formatHM, formatTime, shiftDate, todayInTz } from "@/lib/time";
 
 export default async function EmployeeDashboard() {
   const { supabase, profile } = await requireProfile();
-  const org = await getOrg(supabase);
+  const org = await getOrg();
   const today = todayInTz(org.timezone);
 
   const [{ data: schedule }, { data: sessions }, { data: holiday }, { data: resume }, { data: updates }] = await Promise.all([

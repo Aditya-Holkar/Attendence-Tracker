@@ -5,7 +5,7 @@ import { formatDay, formatTime } from "@/lib/time";
 
 export default async function Approvals() {
   const { supabase, profile } = await requireProfile(["admin", "manager"]);
-  const org = await getOrg(supabase);
+  const org = await getOrg();
   const [{ data: adj }, { data: leave }, { data: resumes }] = await Promise.all([
     supabase.from("attendance_adjustments")
       .select("*, profiles!attendance_adjustments_employee_id_fkey(full_name)").eq("status", "pending").order("created_at"),

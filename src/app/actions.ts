@@ -103,7 +103,7 @@ export async function reviewResume(f: FormData) {
 /** "What I did today", visible to the employee's admin/manager. */
 export async function sendDailyUpdate(f: FormData) {
   const { supabase, profile } = await requireProfile();
-  const org = await getOrg(supabase);
+  const org = await getOrg();
   const message = str(f, "message");
   if (!message) fail("Write a short summary first.");
   if (message.length > 2000) fail("Keep the update under 2000 characters.");

@@ -4,7 +4,7 @@ import { getOrg, requireProfile } from "@/lib/auth";
 
 export default async function Settings() {
   const { supabase } = await requireProfile(["admin"]);
-  const org = await getOrg(supabase);
+  const org = await getOrg();
   const [{ data: scheds }, { data: depts }, { data: holidays }] = await Promise.all([
     supabase.from("work_schedules").select("*").order("name"),
     supabase.from("departments").select("*").order("name"),

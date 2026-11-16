@@ -5,7 +5,7 @@ import { formatDay, formatTime } from "@/lib/time";
 
 export default async function Corrections() {
   const { supabase, profile } = await requireProfile();
-  const org = await getOrg(supabase);
+  const org = await getOrg();
   const { data } = await supabase.from("attendance_adjustments").select("*")
     .eq("employee_id", profile.id).order("created_at", { ascending: false }).limit(30);
 

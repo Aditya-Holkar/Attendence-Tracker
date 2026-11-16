@@ -6,7 +6,7 @@ import { formatDay, formatHM, formatTime, shiftDate, todayInTz } from "@/lib/tim
 export default async function AdminTimesheets({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; q?: string }> }) {
   const sp = await searchParams;
   const { supabase } = await requireProfile(["admin", "manager"]);
-  const org = await getOrg(supabase);
+  const org = await getOrg();
   const to = sp.to || todayInTz(org.timezone);
   const from = sp.from || shiftDate(to, -13);
   const rows = await fetchDaily(supabase, from, to, sp.q);

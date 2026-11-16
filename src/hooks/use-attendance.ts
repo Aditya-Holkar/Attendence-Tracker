@@ -8,6 +8,13 @@ import * as store from "@/lib/offline/queue";
 import { todayInTz } from "@/lib/time";
 import type { EventType } from "@/types";
 
+type SessionWithEvents = {
+  id: string;
+  status: string;
+  work_date: string;
+  attendance_events?: AttEvent[] | null;
+};
+
 export function useAttendance(userId: string, timezone: string) {
   const supabase = useMemo(() => createClient(), []);
   const [serverEvents, setServerEvents] = useState<AttEvent[]>([]);
@@ -20,36 +27,42 @@ export function useAttendance(userId: string, timezone: string) {
 
   const loadServer = useCallback(async () => {
     const fallback = () => setServerEvents(store.readSnapshot(userId));
-    const { data: s, error } = await supabase
-      .from("attendance_sessions").select("id,status,work_date")
+
+    // One request instead of two: the session and its events come back together.
+    const { data, error } = await supabase
+      .from("attendance_sessions")
+      .select("id,status,work_date,attendance_events(id,event_type,occurred_at,voided)")
       .eq("employee_id", userId).order("clock_in_at", { ascending: false }).limit(1);
-    if (error) return fallback();
 
-    const session = s?.[0];
-    const relevant = session && (session.status !== "completed" || session.work_date === todayInTz(timezone));
-    if (!relevant) { setServerEvents([]); store.writeSnapshot(userId, []); return; }
+    let session = (data?.[0] ?? null) as SessionWithEvents | null;
 
-    const withVoided = await supabase
-      .from("attendance_events").select("id,event_type,occurred_at,voided")
-      .eq("session_id", session.id).order("occurred_at");
-    let ev = withVoided.data as AttEvent[] | null;
-    let evErr = withVoided.error;
-    if (evErr) {
-      // 0002 migration not applied yet: read the old columns.
+    // Pre-0002 databases do not have attendance_events.voided yet.
+    if (error) {
       const plain = await supabase
-        .from("attendance_events").select("id,event_type,occurred_at")
-        .eq("session_id", session.id).order("occurred_at");
-      ev = plain.data as AttEvent[] | null;
-      evErr = plain.error;
+        .from("attendance_sessions")
+        .select("id,status,work_date,attendance_events(id,event_type,occurred_at)")
+        .eq("employee_id", userId).order("clock_in_at", { ascending: false }).limit(1);
+      if (plain.error) return fallback();
+      session = (plain.data?.[0] ?? null) as SessionWithEvents | null;
     }
-    if (evErr) return fallback();
-    setServerEvents(ev ?? []);
-    store.writeSnapshot(userId, ev ?? []);
+
+    if (!session || (session.status === "completed" && session.work_date !== todayInTz(timezone))) {
+      setServerEvents([]);
+      store.writeSnapshot(userId, []);
+      return;
+    }
+
+    const events = [...(session.attendance_events ?? [])].sort(
+      (a, b) => +new Date(a.occurred_at) - +new Date(b.occurred_at),
+    );
+    setServerEvents(events);
+    store.writeSnapshot(userId, events);
   }, [supabase, userId, timezone]);
 
-  const flush = useCallback(async () => {
+  const flush = useCallback(async (reload = false) => {
     if (flushing.current) return;
     flushing.current = true;
+    let changed = false;
     try {
       for (const item of store.readQueue(userId)) {
         if (item.sync_status === "failed") continue;
@@ -57,14 +70,16 @@ export function useAttendance(userId: string, timezone: string) {
           p_event_id: item.id, p_type: item.event_type,
           p_occurred_at: item.occurred_at, p_device_id: item.device_id,
         });
-        if (!error) { store.markSynced(userId, item.id); continue; }
-        if (error.code) { store.markFailed(userId, item.id, error.message); break; } // rejected by the rules
+        if (!error) { store.markSynced(userId, item.id); changed = true; continue; }
+        if (error.code) { store.markFailed(userId, item.id, error.message); changed = true; break; } // rejected by the rules
         break; // no code => network problem; keep queued and retry later
       }
     } finally {
       flushing.current = false;
       refreshQueue();
-      await loadServer();
+      // Only hit the database when something actually synced. The old code
+      // reloaded every 30s even with an empty queue.
+      if (changed || reload) await loadServer();
     }
   }, [supabase, userId, refreshQueue, loadServer]);
 
@@ -73,8 +88,8 @@ export function useAttendance(userId: string, timezone: string) {
     refreshQueue();
     setServerEvents(store.readSnapshot(userId));
     setReady(true);
-    void flush();
-    const on = () => { setOnline(true); void flush(); };
+    void flush(true);
+    const on = () => { setOnline(true); void flush(true); };
     const off = () => setOnline(false);
     window.addEventListener("online", on);
     window.addEventListener("offline", off);

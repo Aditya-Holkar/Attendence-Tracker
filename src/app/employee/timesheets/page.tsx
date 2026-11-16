@@ -4,7 +4,7 @@ import { formatDay, formatHM, formatTime, shiftDate, todayInTz } from "@/lib/tim
 
 export default async function Timesheets() {
   const { supabase, profile } = await requireProfile();
-  const org = await getOrg(supabase);
+  const org = await getOrg();
   const from = shiftDate(todayInTz(org.timezone), -60);
   const { data } = await supabase.from("attendance_sessions").select("*")
     .eq("employee_id", profile.id).gte("work_date", from).order("work_date", { ascending: false });

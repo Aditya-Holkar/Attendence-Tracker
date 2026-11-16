@@ -1,19 +1,43 @@
 import { Badge, Card, PageHeader, Stat, statusBadge, Table } from "@/components/ui";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
-import { TrendChart } from "@/components/trend-chart";
+import { TrendChartLazy } from "@/components/trend-chart-lazy";
 import { getOrg, requireProfile } from "@/lib/auth";
 import { isLate, summarize, type AttEvent } from "@/lib/attendance/calculations";
 import { formatClock, formatDay, formatTime, shiftDate, todayInTz } from "@/lib/time";
 
+type EvRow = {
+  id: string;
+  session_id: string;
+  event_type: AttEvent["event_type"];
+  occurred_at: string;
+  voided?: boolean;
+};
+
+type SessionRow = {
+  id: string;
+  employee_id: string;
+  work_date: string;
+  status: string;
+  clock_in_at: string;
+  clock_out_at: string | null;
+  break_seconds: number;
+  net_seconds: number | null;
+  events?: EvRow[] | null;
+};
+
 export default async function AdminDashboard() {
   const { supabase } = await requireProfile(["admin", "manager"]);
-  const org = await getOrg(supabase);
+  const org = await getOrg();
   const today = todayInTz(org.timezone);
   const since = shiftDate(today, -6);
 
-  const [{ data: people }, { data: sessions }, { count: pendingAdj }, { count: pendingLeave }, { count: pendingResume }, { data: flagged }, { data: updates }] = await Promise.all([
+  // Sessions and their events are embedded in one round trip. The separate
+  // event query used to add a second network wait after every other read.
+  const [{ data: people }, { data: sessionData, error: sessionsError }, { count: pendingAdj }, { count: pendingLeave }, { count: pendingResume }, { data: flagged }, { data: updates }] = await Promise.all([
     supabase.from("profiles").select("id, full_name, schedule:work_schedules(start_time, grace_minutes)").eq("is_active", true),
-    supabase.from("attendance_sessions").select("*").gte("work_date", since),
+    supabase.from("attendance_sessions")
+      .select("id, employee_id, work_date, status, clock_in_at, clock_out_at, break_seconds, net_seconds, events:attendance_events(id, session_id, event_type, occurred_at, voided)")
+      .gte("work_date", since),
     supabase.from("attendance_adjustments").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("leave_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("resume_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -23,26 +47,29 @@ export default async function AdminDashboard() {
       .eq("work_date", today).order("created_at", { ascending: false }).limit(12),
   ]);
 
-  const all = sessions ?? [];
-  const todays = all.filter((s) => s.work_date === today);
-  const ids = todays.map((s) => s.id);
-  type EvRow = { id: string; session_id: string; event_type: AttEvent["event_type"]; occurred_at: string; voided?: boolean };
-  let evs: EvRow[] = [];
-  if (ids.length) {
-    const withVoided = await supabase.from("attendance_events")
-      .select("id, session_id, event_type, occurred_at, voided").in("session_id", ids);
-    if (withVoided.error) {
-      // 0002 migration not applied yet: read the old columns instead of blanking the table.
-      const plain = await supabase.from("attendance_events")
+  let all = (sessionData ?? []) as SessionRow[];
+  let evs: EvRow[] = all.flatMap((s) => s.events ?? []);
+
+  if (sessionsError) {
+    // 0002 migration not applied yet: read the old shape instead of blanking
+    // the whole overview.
+    const { data: plainSessions } = await supabase
+      .from("attendance_sessions")
+      .select("id, employee_id, work_date, status, clock_in_at, clock_out_at, break_seconds, net_seconds")
+      .gte("work_date", since);
+    all = (plainSessions ?? []) as SessionRow[];
+    const ids = all.filter((s) => s.work_date === today).map((s) => s.id);
+    if (ids.length) {
+      const { data: plainEvents } = await supabase
+        .from("attendance_events")
         .select("id, session_id, event_type, occurred_at").in("session_id", ids);
-      evs = (plain.data ?? []) as EvRow[];
-    } else {
-      evs = (withVoided.data ?? []) as EvRow[];
+      evs = (plainEvents ?? []) as EvRow[];
     }
   }
 
+  const todays = all.filter((s) => s.work_date === today);
   const bySession = new Map<string, AttEvent[]>();
-  for (const e of evs ?? []) bySession.set(e.session_id, [...(bySession.get(e.session_id) ?? []), e]);
+  for (const e of evs) bySession.set(e.session_id, [...(bySession.get(e.session_id) ?? []), e]);
   const people_ = (people ?? []) as any[];
   const rows = people_.map((p) => {
     const s = todays.find((x) => x.employee_id === p.id);
@@ -87,7 +114,7 @@ export default async function AdminDashboard() {
             ))}
           </Table>
         </Card>
-        <Card title="Present, last 7 days"><TrendChart data={trend} /></Card>
+        <Card title="Present, last 7 days"><TrendChartLazy data={trend} /></Card>
       </div>
 
       <Card title="What the team did today" className="mt-4">
