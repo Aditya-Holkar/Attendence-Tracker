@@ -54,6 +54,15 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const signedIn = Boolean(data?.claims);
 
+  // Supabase falls back to the Site URL (often "/") when the requested
+  // redirect is not allow-listed. Forward a PKCE code to the callback handler
+  // instead of letting the auth guard lose it.
+  if (pathname === "/" && request.nextUrl.searchParams.has("code")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    return NextResponse.redirect(url);
+  }
+
   if (!signedIn && !isPublic(pathname)) {
     // Supabase sends expired or already-used email links to the Site URL with
     // error params. Take the user to a clean login page with a clear message
