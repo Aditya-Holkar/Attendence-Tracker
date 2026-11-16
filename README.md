@@ -36,8 +36,10 @@ Production URL: **https://attendencetracker-gamma.vercel.app**
 Sign-up sends `emailRedirectTo=<NEXT_PUBLIC_SITE_URL>/auth/callback` (falling back to the current
 origin when the variable is unset), so a confirmation email created on localhost still opens the
 configured deployment. Supabase only allows redirects that are listed under **Redirect URLs**;
-otherwise it falls back to the **Site URL**. To skip confirmation while testing: Authentication →
-Providers → Email → turn off **Confirm email**.
+otherwise it falls back to the **Site URL**. Keep the default `{{ .ConfirmationURL }}` link in
+**Authentication → Email Templates → Confirm signup** — `{{ .SiteURL }}` ignores the per-request
+redirect. To skip confirmation while testing: Authentication → Providers → Email → turn off
+**Confirm email**.
 
 ## How it works
 - **Events, not timers.** Clock in/out and breaks are stored as timestamped events. Elapsed time is
