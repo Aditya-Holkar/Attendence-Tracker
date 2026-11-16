@@ -6,6 +6,8 @@ export interface AttEvent {
   id: string;
   event_type: EventType;
   occurred_at: string;
+  /** An approved "resume" voids an accidental clock-out; voided events are ignored. */
+  voided?: boolean;
 }
 
 export interface Summary {
@@ -34,6 +36,7 @@ export function summarize(events: AttEvent[], now: number = Date.now()): Summary
   let breakMs = 0;
 
   for (const e of sorted) {
+    if (e.voided) continue;
     const t = new Date(e.occurred_at).getTime();
     switch (e.event_type) {
       case "CLOCK_IN":

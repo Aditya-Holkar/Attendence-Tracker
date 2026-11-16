@@ -13,8 +13,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       : []),
   ];
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
-      <Sidebar title={profile.role === "admin" ? "Admin" : "Team"} name={profile.full_name || profile.email}
+    <div className="flex flex-1 flex-col md:flex-row">
+      <Sidebar title="Tracker" name={profile.full_name || profile.email}
         items={items} switchTo={{ href: "/employee/dashboard", label: "My timesheet" }} />
       <main className="mx-auto w-full max-w-6xl flex-1 p-4 md:p-8">{children}</main>
     </div>

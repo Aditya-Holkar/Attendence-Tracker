@@ -2,12 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireProfile } from "@/lib/auth";
+import { getOrg, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { todayInTz } from "@/lib/time";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const nul = (f: FormData, k: string) => str(f, k) || null;
-const fail = (msg: string) => { throw new Error(msg); };
+const fail = (msg: string): never => { throw new Error(msg); };
 
 export async function signOut() {
   const sb = await createClient();
@@ -62,6 +63,59 @@ export async function reviewLeave(f: FormData) {
   }).eq("id", str(f, "id")).eq("status", "pending");
   if (error) fail(error.message);
   revalidatePath("/admin/approvals");
+}
+
+/** Asked by an employee who clocked out by mistake; approval reopens the day. */
+export async function requestResume(f: FormData) {
+  const { supabase, profile } = await requireProfile();
+  // Never trust the hidden fields: the session must belong to the caller.
+  const { data: session } = await supabase.from("attendance_sessions")
+    .select("id, work_date, status").eq("id", str(f, "session_id"))
+    .eq("employee_id", profile.id).maybeSingle();
+  if (!session) return fail("That attendance record was not found.");
+  if (session.status !== "completed") fail("Today's attendance is already open.");
+
+  const { error } = await supabase.from("resume_requests").insert({
+    employee_id: profile.id,
+    session_id: session.id,
+    work_date: session.work_date,
+    reason: nul(f, "reason"),
+  });
+  if (error) {
+    if (error.code === "23505") fail("You already have a resume request waiting for today.");
+    fail(error.message);
+  }
+  revalidatePath("/employee/dashboard");
+  revalidatePath("/admin/approvals");
+}
+
+export async function reviewResume(f: FormData) {
+  const { supabase } = await requireProfile(["admin", "manager"]);
+  const { error } = await supabase.rpc("review_resume_request", {
+    p_id: str(f, "id"), p_approve: str(f, "decision") === "approve", p_note: nul(f, "note"),
+  });
+  if (error) fail(error.message);
+  revalidatePath("/admin/approvals");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/employee/dashboard");
+}
+
+/** "What I did today", visible to the employee's admin/manager. */
+export async function sendDailyUpdate(f: FormData) {
+  const { supabase, profile } = await requireProfile();
+  const org = await getOrg(supabase);
+  const message = str(f, "message");
+  if (!message) fail("Write a short summary first.");
+  if (message.length > 2000) fail("Keep the update under 2000 characters.");
+  const { error } = await supabase.from("daily_updates").insert({
+    employee_id: profile.id,
+    // The day is decided by the server, never by a hidden form field.
+    work_date: todayInTz(org.timezone),
+    message,
+  });
+  if (error) fail(error.message);
+  revalidatePath("/employee/dashboard");
+  revalidatePath("/admin/dashboard");
 }
 
 export async function updateEmployee(f: FormData) {

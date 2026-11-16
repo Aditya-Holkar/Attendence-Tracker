@@ -11,25 +11,38 @@ export default async function AdminDashboard() {
   const today = todayInTz(org.timezone);
   const since = shiftDate(today, -6);
 
-  const [{ data: people }, { data: sessions }, { count: pendingAdj }, { count: pendingLeave }, { data: flagged }] = await Promise.all([
+  const [{ data: people }, { data: sessions }, { count: pendingAdj }, { count: pendingLeave }, { count: pendingResume }, { data: flagged }, { data: updates }] = await Promise.all([
     supabase.from("profiles").select("id, full_name, schedule:work_schedules(start_time, grace_minutes)").eq("is_active", true),
     supabase.from("attendance_sessions").select("*").gte("work_date", since),
     supabase.from("attendance_adjustments").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("leave_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("resume_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("attendance_events").select("id, event_type, flag, received_at, profiles!attendance_events_employee_id_fkey(full_name)")
       .not("flag", "is", null).order("received_at", { ascending: false }).limit(8),
+    supabase.from("daily_updates").select("id, message, created_at, profiles!daily_updates_employee_id_fkey(full_name)")
+      .eq("work_date", today).order("created_at", { ascending: false }).limit(12),
   ]);
 
   const all = sessions ?? [];
   const todays = all.filter((s) => s.work_date === today);
   const ids = todays.map((s) => s.id);
-  const { data: evs } = ids.length
-    ? await supabase.from("attendance_events").select("id, session_id, event_type, occurred_at").in("session_id", ids)
-    : { data: [] as { id: string; session_id: string; event_type: AttEvent["event_type"]; occurred_at: string }[] };
+  type EvRow = { id: string; session_id: string; event_type: AttEvent["event_type"]; occurred_at: string; voided?: boolean };
+  let evs: EvRow[] = [];
+  if (ids.length) {
+    const withVoided = await supabase.from("attendance_events")
+      .select("id, session_id, event_type, occurred_at, voided").in("session_id", ids);
+    if (withVoided.error) {
+      // 0002 migration not applied yet: read the old columns instead of blanking the table.
+      const plain = await supabase.from("attendance_events")
+        .select("id, session_id, event_type, occurred_at").in("session_id", ids);
+      evs = (plain.data ?? []) as EvRow[];
+    } else {
+      evs = (withVoided.data ?? []) as EvRow[];
+    }
+  }
 
   const bySession = new Map<string, AttEvent[]>();
   for (const e of evs ?? []) bySession.set(e.session_id, [...(bySession.get(e.session_id) ?? []), e]);
-
   const people_ = (people ?? []) as any[];
   const rows = people_.map((p) => {
     const s = todays.find((x) => x.employee_id === p.id);
@@ -57,7 +70,7 @@ export default async function AdminDashboard() {
         <Stat label="Absent so far" value={Math.max(0, people_.length - todays.length)} />
         <Stat label="On break" value={count("on_break")} />
         <Stat label="Late" value={rows.filter((r) => r.late).length} />
-        <Stat label="Pending approvals" value={(pendingAdj ?? 0) + (pendingLeave ?? 0)} />
+        <Stat label="Pending approvals" value={(pendingAdj ?? 0) + (pendingLeave ?? 0) + (pendingResume ?? 0)} />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
@@ -76,6 +89,24 @@ export default async function AdminDashboard() {
         </Card>
         <Card title="Present, last 7 days"><TrendChart data={trend} /></Card>
       </div>
+
+      <Card title="What the team did today" className="mt-4">
+        {(updates ?? []).length === 0 ? (
+          <p className="text-sm text-muted">No updates sent yet today.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {((updates ?? []) as any[]).map((u) => (
+              <li key={u.id} className="py-3 text-sm">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="font-medium">{u.profiles?.full_name ?? "Employee"}</p>
+                  <p className="text-xs text-muted">{formatTime(u.created_at, org.timezone)}</p>
+                </div>
+                <p className="mt-1 whitespace-pre-line">{u.message}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <Card title="Exceptions" className="mt-4">
         {missingOut.length === 0 && !(flagged ?? []).length ? (

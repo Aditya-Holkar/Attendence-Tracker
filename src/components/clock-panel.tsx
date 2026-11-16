@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAttendance } from "@/hooks/use-attendance";
 import { summarize } from "@/lib/attendance/calculations";
 import { canPerform } from "@/lib/attendance/state-machine";
@@ -13,6 +14,7 @@ export default function ClockPanel({ userId, timezone, expectedMinutes }: {
   userId: string; timezone: string; expectedMinutes: number;
 }) {
   const a = useAttendance(userId, timezone);
+  const router = useRouter();
   const [now, setNow] = useState<number | null>(null);
 
   // The tick only redraws. All durations come from stored timestamps.
@@ -24,10 +26,17 @@ export default function ClockPanel({ userId, timezone, expectedMinutes }: {
     return () => { clearInterval(t); document.removeEventListener("visibilitychange", v); };
   }, []);
 
+  // Run the action, then re-render the server page so server-side panels
+  // (resume request, today's summary) reflect the new state immediately.
+  const act = async (type: "CLOCK_IN" | "BREAK_START" | "BREAK_END" | "CLOCK_OUT") => {
+    await a.act(type);
+    router.refresh();
+  };
+
   const s = summarize(a.events, now ?? Date.now());
   const shown = now !== null && a.ready;
   const remaining = Math.max(0, expectedMinutes * 60 - s.workSeconds);
-  const sorted = [...a.events].sort((x, y) => +new Date(x.occurred_at) - +new Date(y.occurred_at));
+  const sorted = [...a.events].filter((e) => !("voided" in e && e.voided)).sort((x, y) => +new Date(x.occurred_at) - +new Date(y.occurred_at));
 
   const main =
     s.status === "not_started" ? { type: "CLOCK_IN" as const, text: "Clock in" } :
@@ -74,13 +83,13 @@ export default function ClockPanel({ userId, timezone, expectedMinutes }: {
 
         <div className="mt-6 flex flex-wrap gap-3">
           {main && (
-            <button onClick={() => a.act(main.type)} disabled={!a.ready || !canPerform(s.status, main.type)}
-              className={`rounded-md px-6 py-3 text-base font-semibold text-white disabled:opacity-40 ${main.type === "CLOCK_IN" ? "bg-work" : "bg-alert"}`}>
+            <button onClick={() => act(main.type)} disabled={!a.ready || !canPerform(s.status, main.type)}
+              className={`rounded-md px-6 py-3 text-base font-semibold text-white disabled:opacity-40 ${main.type === "CLOCK_IN" ? "bg-work-solid" : "bg-alert-solid"}`}>
               {main.text}
             </button>
           )}
           {(s.status === "working" || s.status === "on_break") && (
-            <button onClick={() => a.act(breakBtn.type)} className="rounded-md bg-pause px-6 py-3 text-base font-semibold text-white">
+            <button onClick={() => act(breakBtn.type)} className="rounded-md bg-pause-solid px-6 py-3 text-base font-semibold text-white">
               {breakBtn.text}
             </button>
           )}

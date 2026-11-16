@@ -1,21 +1,85 @@
 @import "tailwindcss";
 
-@theme {
-  --color-paper: #f5f6f3;
-  --color-ink: #17212b;
-  --color-muted: #5d6b79;
-  --color-line: #d9dee3;
-  --color-work: #0f766e;
-  --color-work-soft: #d8efec;
-  --color-pause: #a86a0c;
-  --color-pause-soft: #f8e8cb;
-  --color-alert: #b42318;
-  --color-alert-soft: #fbe1de;
+/* Class-based dark mode: the theme toggle puts `.dark` on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+
+  --paper: #f5f6f3;
+  --surface: #ffffff;
+  --surface-2: #eef2f3;
+  --ink: #17212b;
+  --muted: #5d6b79;
+  --line: #d9dee3;
+
+  --work: #0f766e;
+  --work-soft: #d8efec;
+  --work-solid: #0f766e;
+  --pause: #a86a0c;
+  --pause-soft: #f8e8cb;
+  --pause-solid: #a86a0c;
+  --alert: #b42318;
+  --alert-soft: #fbe1de;
+  --alert-solid: #b42318;
+
+  --solid: #17212b;
+  --solid-ink: #ffffff;
+  --solid-hover: #000000;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --paper: #0b1218;
+  --surface: #121b24;
+  --surface-2: #1a2733;
+  --ink: #e6edf3;
+  --muted: #94a3b3;
+  --line: #26343f;
+
+  --work: #5eead4;
+  --work-soft: #0f2f2b;
+  --work-solid: #0f766e;
+  --pause: #fbbf24;
+  --pause-soft: #3a2a08;
+  --pause-solid: #a16207;
+  --alert: #fca5a5;
+  --alert-soft: #3b1515;
+  --alert-solid: #b42318;
+
+  --solid: #e6edf3;
+  --solid-ink: #0b1218;
+  --solid-hover: #ffffff;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+
+  --color-work: var(--work);
+  --color-work-soft: var(--work-soft);
+  --color-work-solid: var(--work-solid);
+  --color-pause: var(--pause);
+  --color-pause-soft: var(--pause-soft);
+  --color-pause-solid: var(--pause-solid);
+  --color-alert: var(--alert);
+  --color-alert-soft: var(--alert-soft);
+  --color-alert-solid: var(--alert-solid);
+
+  --color-solid: var(--solid);
+  --color-solid-ink: var(--solid-ink);
+  --color-solid-hover: var(--solid-hover);
+
   --font-sans: var(--font-public), system-ui, sans-serif;
 }
 
-html, body { background: var(--color-paper); color: var(--color-ink); }
+html, body { background: var(--paper); color: var(--ink); }
 body { font-family: var(--font-sans); }
-:focus-visible { outline: 2px solid var(--color-work); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--work); outline-offset: 2px; }
 .tnum { font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

@@ -32,3 +32,24 @@ export interface SessionRow {
   net_seconds: number | null;
   is_adjusted: boolean;
 }
+
+export interface ResumeRequest {
+  id: string;
+  employee_id: string;
+  session_id: string;
+  work_date: string;
+  reason: string | null;
+  status: RequestStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  created_at: string;
+}
+
+export interface DailyUpdate {
+  id: string;
+  employee_id: string;
+  work_date: string;
+  message: string;
+  created_at: string;
+}

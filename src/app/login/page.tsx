@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { btnCls, Field, inputCls } from "@/components/ui";
 
 export default function LoginPage() {
@@ -45,7 +46,11 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-12">
+      <div className="mb-8 flex items-center justify-between">
+        <span className="text-sm font-semibold tracking-tight">Tracker</span>
+        <ThemeToggle />
+      </div>
       <h1 className="text-2xl font-semibold">{mode === "in" ? "Sign in" : "Create account"}</h1>
       <p className="mt-1 text-sm text-muted">Clock in, track breaks and review your timesheet.</p>
       <form onSubmit={submit} className="mt-6 space-y-4">

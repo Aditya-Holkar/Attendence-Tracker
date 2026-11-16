@@ -4,9 +4,9 @@ import { Sidebar } from "@/components/sidebar";
 export default async function EmployeeLayout({ children }: { children: React.ReactNode }) {
   const { profile } = await requireProfile();
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
+    <div className="flex flex-1 flex-col md:flex-row">
       <Sidebar
-        title="My timesheet" name={profile.full_name || profile.email}
+        title="Tracker" name={profile.full_name || profile.email}
         items={[
           { href: "/employee/dashboard", label: "Today" },
           { href: "/employee/timesheets", label: "Timesheets" },

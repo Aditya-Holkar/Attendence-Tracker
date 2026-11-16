@@ -4,7 +4,7 @@ export function Card({ title, action, children, className = "" }: {
   title?: string; action?: ReactNode; children: ReactNode; className?: string;
 }) {
   return (
-    <section className={`rounded-lg border border-line bg-white ${className}`}>
+    <section className={`rounded-lg border border-line bg-surface ${className}`}>
       {title && (
         <header className="flex items-center justify-between border-b border-line px-4 py-3">
           <h2 className="text-sm font-semibold">{title}</h2>
@@ -20,7 +20,7 @@ const tones = {
   work: "bg-work-soft text-work",
   pause: "bg-pause-soft text-pause",
   alert: "bg-alert-soft text-alert",
-  neutral: "bg-slate-100 text-muted",
+  neutral: "bg-surface-2 text-muted",
 } as const;
 
 export function Badge({ tone = "neutral", children }: { tone?: keyof typeof tones; children: ReactNode }) {
@@ -39,7 +39,7 @@ export function statusBadge(status: string) {
 
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
-    <div className="rounded-lg border border-line bg-white p-4">
+    <div className="rounded-lg border border-line bg-surface p-4">
       <p className="text-sm text-muted">{label}</p>
       <p className="tnum mt-1 text-2xl font-semibold">{value}</p>
       {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
@@ -63,9 +63,9 @@ export function Table({ head, children, empty }: { head: string[]; children: Rea
   );
 }
 
-export const inputCls = "w-full rounded-md border border-line bg-white px-3 py-2 text-sm";
-export const btnCls = "rounded-md bg-ink px-3 py-2 text-sm font-medium text-white hover:bg-black";
-export const btnGhost = "rounded-md border border-line bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50";
+export const inputCls = "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm placeholder:text-muted";
+export const btnCls = "rounded-md bg-solid px-3 py-2 text-sm font-medium text-solid-ink transition-colors hover:bg-solid-hover";
+export const btnGhost = "rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium transition-colors hover:bg-surface-2";
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (

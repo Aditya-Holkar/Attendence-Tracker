@@ -29,12 +29,22 @@ export function useAttendance(userId: string, timezone: string) {
     const relevant = session && (session.status !== "completed" || session.work_date === todayInTz(timezone));
     if (!relevant) { setServerEvents([]); store.writeSnapshot(userId, []); return; }
 
-    const { data: ev, error: evErr } = await supabase
-      .from("attendance_events").select("id,event_type,occurred_at")
+    const withVoided = await supabase
+      .from("attendance_events").select("id,event_type,occurred_at,voided")
       .eq("session_id", session.id).order("occurred_at");
+    let ev = withVoided.data as AttEvent[] | null;
+    let evErr = withVoided.error;
+    if (evErr) {
+      // 0002 migration not applied yet: read the old columns.
+      const plain = await supabase
+        .from("attendance_events").select("id,event_type,occurred_at")
+        .eq("session_id", session.id).order("occurred_at");
+      ev = plain.data as AttEvent[] | null;
+      evErr = plain.error;
+    }
     if (evErr) return fallback();
-    setServerEvents(ev as AttEvent[]);
-    store.writeSnapshot(userId, ev as AttEvent[]);
+    setServerEvents(ev ?? []);
+    store.writeSnapshot(userId, ev ?? []);
   }, [supabase, userId, timezone]);
 
   const flush = useCallback(async () => {

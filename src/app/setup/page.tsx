@@ -1,16 +1,21 @@
 import { Card } from "@/components/ui";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // Read the environment at request time, not at build time.
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Setup — Timesheet" };
+export const metadata = { title: "Setup" };
 
 export default function SetupPage() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
+    <main className="mx-auto w-full max-w-2xl px-6 py-12">
+      <div className="mb-8 flex items-center justify-between">
+        <span className="text-sm font-semibold tracking-tight">Tracker</span>
+        <ThemeToggle />
+      </div>
       <h1 className="text-2xl font-semibold">Configuration needed</h1>
       <p className="mt-2 text-sm text-muted">
         The app is running, but it can’t reach Supabase yet. Add the two environment variables below and
@@ -20,11 +25,11 @@ export default function SetupPage() {
       <Card title="Environment variables" className="mt-6">
         <ul className="space-y-3 text-sm">
           <li className="flex flex-wrap items-center justify-between gap-2">
-            <code className="rounded bg-slate-100 px-2 py-1">NEXT_PUBLIC_SUPABASE_URL</code>
+            <code className="rounded bg-surface-2 px-2 py-1">NEXT_PUBLIC_SUPABASE_URL</code>
             <span className={url ? "text-work" : "text-alert"}>{url ? `Set — ${url}` : "Missing"}</span>
           </li>
           <li className="flex flex-wrap items-center justify-between gap-2">
-            <code className="rounded bg-slate-100 px-2 py-1">NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code>
+            <code className="rounded bg-surface-2 px-2 py-1">NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code>
             <span className={key ? "text-work" : "text-alert"}>
               {key ? `Set — ${key.slice(0, 16)}…` : "Missing"}
             </span>
