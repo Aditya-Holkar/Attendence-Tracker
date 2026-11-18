@@ -62,7 +62,19 @@ export function Sidebar({ title, name, items, switchTo }: {
           <Link href="/" className="block font-semibold tracking-tight">{title}</Link>
           <p className="truncate text-xs text-muted">{name}</p>
         </div>
-        <ThemeToggle />
+        <div className="flex shrink-0 items-center gap-2">
+          <ThemeToggle />
+          {/* On small screens the full-width sign-out button below is hidden,
+              so keep a compact one in the header where it is always visible. */}
+          <form action={signOut} className="md:hidden">
+            <button
+              type="submit"
+              className="inline-flex h-9 items-center rounded-md border border-line bg-surface px-2.5 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
       </div>
       <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-1 md:flex-col md:overflow-visible">
         {items.map((i) => (
